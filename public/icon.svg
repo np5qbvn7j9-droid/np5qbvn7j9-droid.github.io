@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <!-- مكتبتي — الهوية الرسمية: العقل والمكتبة -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#23a07b"/>
+      <stop offset="1" stop-color="#116a50"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" fill="url(#bg)"/>
+  <g stroke="#ffffff" stroke-linecap="round">
+    <line x1="120" y1="118" x2="120" y2="58" stroke-width="6" opacity="0.85"/>
+    <line x1="120" y1="118" x2="86" y2="84" stroke-width="6" opacity="0.85"/>
+    <line x1="120" y1="118" x2="154" y2="80" stroke-width="6" opacity="0.85"/>
+    <line x1="86" y1="84" x2="120" y2="58" stroke-width="4.5" opacity="0.5"/>
+    <line x1="154" y1="80" x2="120" y2="58" stroke-width="4.5" opacity="0.5"/>
+  </g>
+  <circle cx="120" cy="58" r="8" fill="#ffffff"/>
+  <circle cx="86" cy="84" r="7" fill="#ffffff"/>
+  <circle cx="154" cy="80" r="7" fill="#ffffff"/>
+  <path d="M120,118 C105,107 85,103 68,105 L68,166 C85,164 105,168 120,178 Z" fill="#ffffff"/>
+  <path d="M120,118 C135,107 155,103 172,105 L172,166 C155,164 135,168 120,178 Z" fill="#ffffff" opacity="0.78"/>
+</svg>
