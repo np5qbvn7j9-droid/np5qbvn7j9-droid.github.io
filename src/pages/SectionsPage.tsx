@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { MoreVertical, Pencil, Pin, PinOff, Trash2, Plus, GripVertical } from 'lucide-react'
+import { MoreVertical, Pencil, Pin, PinOff, Trash2, Plus, GripVertical, CheckCircle2, Circle, X, CheckCheck, FileText } from 'lucide-react'
 import { db, save, remove } from '../db/db'
 import Modal from '../components/Modal'
 import { timeAgo } from '../lib/utils'
@@ -13,7 +13,6 @@ const COLORS = ['#5aa9e6', '#7fc8a9', '#f6bd60', '#e07a5f', '#b8a1e3', '#9aa5b1'
 export default function SectionsPage() {
   const sections = useLiveQuery(async () => {
     const list = await db.sections.orderBy('order').filter((s) => !s.deleted).toArray()
-    // pinned sections float to the top, keeping manual order inside each group
     return list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0))
   }, [])
   const counts = useLiveQuery(async () => {
@@ -25,11 +24,32 @@ export default function SectionsPage() {
   }, [])
 
   const [editing, setEditing] = useState<Partial<Section> | null>(null)
-  const [deleting, setDeleting] = useState<Section | null>(null)
+  const [deleting, setDeleting] = useState<Section[] | null>(null) // one or many
   const [deleteMode, setDeleteMode] = useState<'move' | 'none' | 'all'>('none')
   const [moveTarget, setMoveTarget] = useState('')
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
+
+  // ---- Multi-select (long-press to enter) ----
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const pressTimer = useRef<any>(null)
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  const exitSelect = () => { setSelectMode(false); setSelected(new Set()) }
+  const startPress = (id: string) => {
+    pressTimer.current = setTimeout(() => {
+      setSelectMode(true)
+      setSelected(new Set([id]))
+      if (navigator.vibrate) navigator.vibrate(12)
+    }, 500)
+  }
+  const cancelPress = () => clearTimeout(pressTimer.current)
 
   async function dropOn(targetId: string) {
     if (!dragId || dragId === targetId || !sections) return
@@ -59,74 +79,126 @@ export default function SectionsPage() {
     setEditing(null)
   }
 
+  const notesInDeleting = deleting
+    ? deleting.reduce((sum, s) => sum + (counts?.[s.id] || 0), 0)
+    : 0
+
   async function confirmDelete() {
     if (!deleting) return
-    const notes = await db.notes.filter((n) => !n.deleted && n.sectionId === deleting.id).toArray()
+    const ids = new Set(deleting.map((s) => s.id))
+    const notes = await db.notes.filter((n) => !n.deleted && !!n.sectionId && ids.has(n.sectionId)).toArray()
     if (deleteMode === 'all') {
-      if (!confirm(`تأكيد أخير: سيتم حذف القسم و${notes.length} ملاحظة نهائيًا. متابعة؟`)) return
+      if (!confirm(`تأكيد أخير: سيتم حذف ${deleting.length} قسم و${notes.length} ملاحظة نهائيًا. متابعة؟`)) return
       for (const n of notes) await remove('notes', n.id)
     } else {
       const target = deleteMode === 'move' ? moveTarget || null : null
       for (const n of notes) await save('notes', { id: n.id, sectionId: target, folderId: null } as any)
     }
-    await remove('sections', deleting.id)
+    for (const s of deleting) await remove('sections', s.id)
     setDeleting(null)
+    exitSelect()
   }
 
   return (
     <div>
       <h1 className="page-title">الأقسام</h1>
-      <p className="page-sub">نظّم معرفتك في أقسام بلا حدود — اسحب البطاقات لإعادة الترتيب</p>
-      <button className="btn primary" onClick={() => setEditing({})}><Plus size={16} /> قسم جديد</button>
+      <p className="page-sub">اضغط مطولًا للتحديد الجماعي — واسحب البطاقات لإعادة الترتيب</p>
+
+      {selectMode ? (
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', position: 'sticky', top: 60, zIndex: 30 }}>
+          <b style={{ fontSize: 14 }}>{selected.size} محدد</b>
+          <div style={{ flex: 1 }} />
+          <button className="btn sm" onClick={() => setSelected(new Set(sections?.map((s) => s.id)))}><CheckCheck size={14} /> تحديد الكل</button>
+          <button className="btn sm" onClick={exitSelect}><X size={14} /> إلغاء</button>
+          <button
+            className="btn danger sm" disabled={!selected.size}
+            onClick={() => {
+              setDeleting(sections?.filter((s) => selected.has(s.id)) || [])
+              setDeleteMode('none'); setMoveTarget('')
+            }}
+          ><Trash2 size={14} /> حذف المحدد</button>
+        </div>
+      ) : (
+        <button className="btn primary" onClick={() => setEditing({})}><Plus size={16} /> قسم جديد</button>
+      )}
 
       <div className="grid cols-2" style={{ marginTop: 18 }}>
-        {sections?.map((s) => (
-          <div
-            key={s.id} className="card"
-            style={{ position: 'relative', opacity: dragId === s.id ? 0.4 : 1 }}
-            draggable
-            onDragStart={() => setDragId(s.id)}
-            onDragEnd={() => setDragId(null)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); dropOn(s.id) }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <GripVertical size={15} style={{ color: 'var(--text-3)', cursor: 'grab', flexShrink: 0 }} />
-              <Link to={`/section/${s.id}`} style={{ color: 'inherit', display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                <span className="icon-bubble" style={{ background: `color-mix(in srgb, ${s.color} 16%, transparent)` }}>{s.icon}</span>
-                <div style={{ minWidth: 0 }}>
-                  <b style={{ fontSize: 14.5, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    {s.pinned ? <Pin size={12} style={{ color: s.color }} /> : null}
-                    {s.name}
-                  </b>
-                  {s.description && (
-                    <div style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {s.description}
+        {sections?.map((s) => {
+          const isSel = selected.has(s.id)
+          return (
+            <div
+              key={s.id} className="card"
+              style={{
+                position: 'relative', opacity: dragId === s.id ? 0.4 : 1,
+                border: isSel ? '2px solid var(--accent)' : undefined,
+                background: isSel ? 'var(--accent-soft)' : undefined,
+              }}
+              draggable={!selectMode}
+              onDragStart={() => setDragId(s.id)}
+              onDragEnd={() => setDragId(null)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); dropOn(s.id) }}
+              onPointerDown={() => !selectMode && startPress(s.id)}
+              onPointerUp={cancelPress}
+              onPointerLeave={cancelPress}
+              onPointerMove={cancelPress}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {selectMode ? (
+                  <button className="btn ghost sm" onClick={() => toggle(s.id)} style={{ padding: 4 }}>
+                    {isSel ? <CheckCircle2 size={20} style={{ color: 'var(--accent)' }} /> : <Circle size={20} style={{ color: 'var(--text-3)' }} />}
+                  </button>
+                ) : (
+                  <GripVertical size={15} style={{ color: 'var(--text-3)', cursor: 'grab', flexShrink: 0 }} />
+                )}
+                <Link
+                  to={`/section/${s.id}`}
+                  style={{ color: 'inherit', display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}
+                  onClick={(e) => { if (selectMode) { e.preventDefault(); toggle(s.id) } }}
+                >
+                  <span className="icon-bubble" style={{ background: `color-mix(in srgb, ${s.color} 16%, transparent)` }}>{s.icon}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <b style={{ fontSize: 14.5, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {s.pinned ? <Pin size={12} style={{ color: s.color }} /> : null}
+                      {s.name}
+                    </b>
+                    {s.description && (
+                      <div style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.description}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>
+                      {counts?.[s.id] || 0} ملاحظة · {timeAgo(s.updatedAt)}
                     </div>
-                  )}
-                  <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>
-                    {counts?.[s.id] || 0} ملاحظة · {timeAgo(s.updatedAt)}
+                  </div>
+                </Link>
+                {!selectMode && (
+                  <button className="btn ghost sm" onClick={() => setMenuFor(menuFor === s.id ? null : s.id)}>
+                    <MoreVertical size={16} />
+                  </button>
+                )}
+              </div>
+
+              {menuFor === s.id && (
+                <div className="menu-pop">
+                  <button onClick={() => { setMenuFor(null); setEditing(s) }}><Pencil size={15} /> تعديل (الاسم/اللون/الأيقونة)</button>
+                  <button onClick={async () => { setMenuFor(null); await save('sections', { id: s.id, pinned: s.pinned ? 0 : 1 } as any) }}>
+                    {s.pinned ? <><PinOff size={15} /> إلغاء التثبيت</> : <><Pin size={15} /> تثبيت في الأعلى</>}
+                  </button>
+                  <button onClick={() => { setMenuFor(null); setSelectMode(true); setSelected(new Set([s.id])) }}>
+                    <CheckCircle2 size={15} /> تحديد
+                  </button>
+                  <button className="danger" onClick={() => { setMenuFor(null); setDeleting([s]); setDeleteMode('none'); setMoveTarget('') }}>
+                    <Trash2 size={15} /> حذف
+                  </button>
+                  <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-3)', borderTop: '1px solid var(--border)', display: 'flex', gap: 7, alignItems: 'center' }}>
+                    <FileText size={13} /> {counts?.[s.id] || 0} ملاحظة داخل القسم
                   </div>
                 </div>
-              </Link>
-              <button className="btn ghost sm" onClick={() => setMenuFor(menuFor === s.id ? null : s.id)}>
-                <MoreVertical size={16} />
-              </button>
+              )}
             </div>
-
-            {menuFor === s.id && (
-              <div className="menu-pop">
-                <button onClick={() => { setMenuFor(null); setEditing(s) }}><Pencil size={15} /> تعديل</button>
-                <button onClick={async () => { setMenuFor(null); await save('sections', { id: s.id, pinned: s.pinned ? 0 : 1 } as any) }}>
-                  {s.pinned ? <><PinOff size={15} /> إلغاء التثبيت</> : <><Pin size={15} /> تثبيت</>}
-                </button>
-                <button className="danger" onClick={() => { setMenuFor(null); setDeleting(s); setDeleteMode('none'); setMoveTarget('') }}>
-                  <Trash2 size={15} /> حذف
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Add / Edit */}
@@ -160,11 +232,15 @@ export default function SectionsPage() {
         </Modal>
       )}
 
-      {/* Delete flow */}
+      {/* Delete flow (single or bulk) */}
       {deleting && (
-        <Modal title={`حذف قسم «${deleting.name}»`} onClose={() => setDeleting(null)}>
+        <Modal
+          title={deleting.length === 1 ? `حذف قسم «${deleting[0].name}»` : `حذف ${deleting.length} أقسام`}
+          onClose={() => setDeleting(null)}
+        >
           <p style={{ fontSize: 14, color: 'var(--text-2)' }}>
-            يحتوي هذا القسم على <b style={{ color: 'var(--text)' }}>{counts?.[deleting.id] || 0} ملاحظة</b>. ماذا تريد أن يحدث لها؟
+            {deleting.length === 1 ? 'يحتوي هذا القسم' : 'تحتوي هذه الأقسام'} على{' '}
+            <b style={{ color: 'var(--text)' }}>{notesInDeleting} ملاحظة</b>. ماذا تريد أن يحدث لها؟
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '12px 0' }}>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, cursor: 'pointer' }}>
@@ -178,14 +254,14 @@ export default function SectionsPage() {
             {deleteMode === 'move' && (
               <select className="input" value={moveTarget} onChange={(e) => setMoveTarget(e.target.value)}>
                 <option value="">— اختر القسم —</option>
-                {sections?.filter((x) => x.id !== deleting.id).map((x) => (
+                {sections?.filter((x) => !deleting.some((d) => d.id === x.id)).map((x) => (
                   <option key={x.id} value={x.id}>{x.icon} {x.name}</option>
                 ))}
               </select>
             )}
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, cursor: 'pointer', color: 'var(--danger)' }}>
               <input type="radio" checked={deleteMode === 'all'} onChange={() => setDeleteMode('all')} style={{ accentColor: 'var(--danger)' }} />
-              حذف القسم وجميع ملاحظاته نهائيًا
+              حذف {deleting.length === 1 ? 'القسم وجميع ملاحظاته' : 'الأقسام وجميع ملاحظاتها'} نهائيًا
             </label>
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
