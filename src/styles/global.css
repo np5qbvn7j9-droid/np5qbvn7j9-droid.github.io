@@ -1,10 +1,10 @@
 /* ===== Design tokens ===== */
 :root {
   --font: 'IBM Plex Sans Arabic', -apple-system, 'Segoe UI', sans-serif;
-  --radius: 14px;
-  --radius-sm: 9px;
-  --shadow: 0 1px 3px rgba(15, 23, 42, 0.07), 0 4px 14px rgba(15, 23, 42, 0.05);
-  --shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.14);
+  --radius: 16px;
+  --radius-sm: 11px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 3px 10px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 10px 24px rgba(15, 23, 42, 0.12), 0 24px 60px rgba(15, 23, 42, 0.1);
   --accent: #3b82c4;
   --accent-soft: color-mix(in srgb, var(--accent) 13%, transparent);
   --fs-scale: 1;
@@ -18,11 +18,11 @@
 }
 
 [data-theme='light'] {
-  --bg: #f6f7f9;
+  --bg: #f7f8fa;
   --surface: #ffffff;
-  --surface-2: #eef0f3;
-  --border: #e3e6ea;
-  --text: #1c2430;
+  --surface-2: #eff1f5;
+  --border: #e6e9ee;
+  --text: #171e29;
   --text-2: #5b6472;
   --text-3: #9aa3b0;
 }
@@ -132,6 +132,10 @@ input, textarea, select { font-family: var(--font); color: var(--text); }
   transition: all var(--transition); font-weight: 500;
 }
 .btn:hover { background: var(--surface-2); }
+.btn:active { transform: scale(0.97); }
+.btn:focus-visible, .input:focus-visible, .chip:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover { filter: brightness(1.08); }
 .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
@@ -145,7 +149,7 @@ input, textarea, select { font-family: var(--font); color: var(--text); }
   border: 1px solid var(--border); background: var(--surface);
   font-size: 14px; outline: none; transition: border var(--transition);
 }
-.input:focus { border-color: var(--accent); }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 label.field { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 14px; }
 label.field > span { display: block; margin-bottom: 5px; font-weight: 500; }
 
@@ -192,9 +196,29 @@ label.field > span { display: block; margin-bottom: 5px; font-weight: 500; }
   animation: fadeIn 0.15s ease;
 }
 .modal {
-  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; box-shadow: var(--shadow-lg);
   width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto; padding: 22px;
-  animation: slideUp 0.2s ease;
+  animation: slideUp 0.2s ease; overscroll-behavior: contain;
+}
+
+/* Dropdown actions menu (⋮) */
+.menu-pop {
+  position: absolute; top: 38px; inset-inline-end: 8px; z-index: 40; min-width: 170px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 13px;
+  box-shadow: var(--shadow-lg); overflow: hidden; animation: slideUp 0.15s ease;
+}
+.menu-pop button {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 10px 14px;
+  border: none; background: none; font-size: 13.5px; color: var(--text);
+  cursor: pointer; text-align: start; font-family: var(--font);
+}
+.menu-pop button:hover { background: var(--surface-2); }
+.menu-pop button.danger { color: var(--danger); }
+
+.icon-bubble {
+  width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center;
+  justify-content: center; font-size: 21px; flex-shrink: 0;
 }
 .modal h3 { margin: 0 0 16px; font-size: 17px; }
 @keyframes fadeIn { from { opacity: 0; } }

@@ -54,7 +54,7 @@ export default function SectionPage() {
             <a style={{ cursor: 'pointer' }} onClick={() => setFolderId(currentFolder.parentId || null)}>← رجوع</a>
             {'  '}📂 {currentFolder.name}
           </>
-        ) : 'كل الملاحظات والمجلدات'}
+        ) : (section.description || 'كل الملاحظات والمجلدات')}
       </p>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

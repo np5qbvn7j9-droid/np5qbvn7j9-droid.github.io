@@ -14,6 +14,8 @@ export interface Section extends Base {
   icon: string // emoji
   color: string
   order: number
+  description?: string
+  pinned?: 0 | 1
 }
 
 export interface Folder extends Base {
