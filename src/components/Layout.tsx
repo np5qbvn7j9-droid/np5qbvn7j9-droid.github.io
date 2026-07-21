@@ -11,6 +11,7 @@ import { onSyncStatus, type SyncStatus, syncNow } from '../lib/sync'
 import { stripHtml } from '../lib/utils'
 import { toast, ToastHost } from '../lib/toast'
 import UpdateBanner from './UpdateBanner'
+import AddSheet from './AddSheet'
 import type { Theme } from '../App'
 
 const NAV = [
@@ -164,23 +165,15 @@ export default function Layout({ children, theme, setTheme, user }: {
           <button className="btn ghost menu-btn" onClick={() => setOpen(!open)}><Menu size={19} /></button>
           <div style={{ flex: 1 }} />
           <button className="btn sm" onClick={() => nav('/search')}><Search size={15} /> بحث</button>
-          <button className="btn primary sm" onClick={() => newNote()}><Plus size={15} /> ملاحظة</button>
+          <button className="btn primary sm" onClick={() => setFab(true)}><Plus size={15} /> إضافة</button>
         </div>
         {/* Back/forward keeps the page still (no replayed animation) — feels native */}
         <div className={navType === 'POP' ? 'content' : 'content page-anim'} key={loc.pathname}>{children}</div>
       </div>
 
-      {/* Quick actions */}
-      {fab && (
-        <div className="fab-menu">
-          <button onClick={() => newNote()}><PenLine size={17} /> ملاحظة جديدة</button>
-          <button onClick={() => { setFab(false); nav('/templates') }}><LayoutTemplate size={17} /> من قالب</button>
-          <button onClick={() => { setFab(false); pasteNote() }}><ClipboardPaste size={17} /> لصق من الحافظة</button>
-          <button onClick={() => { setFab(false); nav('/inbox?add=1') }}><Link2 size={17} /> حفظ رابط</button>
-          <button onClick={() => { setFab(false); nav('/quotes?add=1') }}><Quote size={17} /> اقتباس جديد</button>
-        </div>
-      )}
-      <button className="fab" onClick={() => setFab(!fab)}>{fab ? <X size={24} /> : <Plus size={24} />}</button>
+      {/* Add to library: opens the content-type picker */}
+      {fab && <AddSheet onClose={() => setFab(false)} />}
+      <button className="fab" onClick={() => setFab(true)} title="أضف إلى مكتبتك"><Plus size={24} /></button>
 
       {/* Mobile bottom nav */}
       <nav className="mobile-nav">

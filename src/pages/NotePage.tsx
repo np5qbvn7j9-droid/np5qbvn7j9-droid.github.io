@@ -7,6 +7,7 @@ import NoteCard from '../components/NoteCard'
 import { stripHtml, extractWikiLinks, srsInit, fmtDate, uid, now } from '../lib/utils'
 import { invalidateIndex } from '../lib/search'
 import { toast } from '../lib/toast'
+import { CONTENT_TYPES, typeInfo } from '../lib/contentTypes'
 import { NOTE_COLORS, type Note } from '../types'
 
 export default function NotePage() {
@@ -128,9 +129,15 @@ export default function NotePage() {
         <button className="btn ghost sm" onClick={() => setShowMeta(!showMeta)}>⚙️ خصائص</button>
       </div>
 
+      <button
+        className="chip" onClick={() => setShowMeta(true)}
+        style={{ background: 'var(--accent-soft)', color: 'var(--accent)', marginBottom: 4 }}
+      >
+        {typeInfo(note.type).icon} {typeInfo(note.type).label}
+      </button>
       <input
         className="input" dir="auto" style={{ fontSize: 26, fontWeight: 700, border: 'none', background: 'transparent', padding: '4px 0' }}
-        placeholder="عنوان الملاحظة…" value={title}
+        placeholder={`عنوان ${typeInfo(note.type).label}…`} value={title}
         onChange={(e) => { setTitle(e.target.value); update({ title: e.target.value }, true) }}
       />
       <input
@@ -141,6 +148,11 @@ export default function NotePage() {
 
       {showMeta && (
         <div className="card" style={{ margin: '10px 0' }}>
+          <label className="field"><span>نوع المحتوى</span>
+            <select className="input" value={note.type || 'note'} onChange={(e) => update({ type: e.target.value })}>
+              {CONTENT_TYPES.map((t) => <option key={t.key} value={t.key}>{t.icon} {t.label}</option>)}
+            </select>
+          </label>
           <div className="grid cols-2">
             <label className="field"><span>القسم</span>
               <select className="input" value={note.sectionId || ''} onChange={(e) => update({ sectionId: e.target.value || null, folderId: null })}>

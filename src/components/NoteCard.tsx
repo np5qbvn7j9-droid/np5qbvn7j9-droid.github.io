@@ -7,6 +7,7 @@ import Modal from './Modal'
 import { useSettings } from '../lib/settings'
 import type { Note } from '../types'
 import { timeAgo } from '../lib/utils'
+import { typeInfo } from '../lib/contentTypes'
 
 interface CardProps {
   note: Note
@@ -67,8 +68,13 @@ function NoteCardInner({ note, selectMode, selected, onToggle, onLongPress }: Ca
         </h4>
         {(note.description || note.contentText) && <p>{note.description || note.contentText.slice(0, 140)}</p>}
         <div className="meta">
+          {note.type && note.type !== 'note' && (
+            <span className="chip" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+              {typeInfo(note.type).icon} {typeInfo(note.type).label}
+            </span>
+          )}
           <span>{timeAgo(note.updatedAt)}</span>
-          {note.tags?.slice(0, 3).map((t) => (
+          {note.tags?.slice(0, 2).map((t) => (
             <span key={t} className="chip">#{t}</span>
           ))}
           {note.srs && <Repeat2 size={12} />}

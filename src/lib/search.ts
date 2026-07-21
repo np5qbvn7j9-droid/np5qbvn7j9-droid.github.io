@@ -3,10 +3,12 @@
 import MiniSearch from 'minisearch'
 import { db } from '../db/db'
 import { normalizeArabic, startOfToday } from './utils'
+import { typeInfo } from './contentTypes'
 
 export interface SearchDoc {
   id: string
   kind: 'note' | 'quote' | 'reference'
+  ntype: string // content type key ('note' for quotes/refs)
   title: string
   text: string
   tags: string
@@ -38,10 +40,12 @@ export async function buildIndex(force = false) {
   const all: SearchDoc[] = []
   for (const n of notes) {
     if (n.deleted) continue
+    const ti = typeInfo(n.type)
     const d: SearchDoc = {
-      id: 'note:' + n.id, kind: 'note', title: n.title || 'بدون عنوان',
+      id: 'note:' + n.id, kind: 'note', ntype: n.type || 'note', title: n.title || 'بدون عنوان',
       text: [n.description, n.contentText].join(' '),
-      tags: [...(n.tags || []), ...(n.keywords || [])].join(' '),
+      // type label joins tags so "القصائد" / "كلمات" find their type
+      tags: [ti.label, ...(n.tags || []), ...(n.keywords || [])].join(' '),
       extra: '', updatedAt: n.updatedAt, createdAt: n.createdAt,
     }
     all.push(d); docs.set(d.id, d)
@@ -49,7 +53,7 @@ export async function buildIndex(force = false) {
   for (const q of quotes) {
     if (q.deleted) continue
     const d: SearchDoc = {
-      id: 'quote:' + q.id, kind: 'quote', title: q.author || 'اقتباس',
+      id: 'quote:' + q.id, kind: 'quote', ntype: 'note', title: q.author || 'اقتباس',
       text: [q.text, q.comment].join(' '), tags: (q.tags || []).join(' '),
       extra: [q.source, q.category].join(' '), updatedAt: q.updatedAt, createdAt: q.createdAt,
     }
@@ -58,7 +62,7 @@ export async function buildIndex(force = false) {
   for (const r of refs) {
     if (r.deleted) continue
     const d: SearchDoc = {
-      id: 'reference:' + r.id, kind: 'reference', title: r.title,
+      id: 'reference:' + r.id, kind: 'reference', ntype: 'note', title: r.title,
       text: r.notes || '', tags: '', extra: [r.author, r.type].join(' '),
       updatedAt: r.updatedAt, createdAt: r.createdAt,
     }
@@ -73,6 +77,7 @@ export interface SearchHit {
   id: string
   rawId: string
   kind: SearchDoc['kind']
+  ntype: string
   title: string
   score: number
 }
@@ -93,7 +98,12 @@ function timeFilter(q: string): { from: number; cleaned: string } | null {
 
 const STOP = /\b(جميع|كل|ما|التي|الذي|عن|في|من|إلى|على|ملاحظاتي|ملاحظات|يتعلق|بـ|أضفتها|كتبت)\b/g
 
-export async function search(queryText: string): Promise<SearchHit[]> {
+const asHit = (d: SearchDoc, score: number): SearchHit => ({
+  id: d.id, rawId: d.id.split(':')[1], kind: d.kind, ntype: d.ntype, title: d.title, score,
+})
+
+// typeKey: optional content-type filter (used by "browse by type")
+export async function search(queryText: string, typeKey?: string): Promise<SearchHit[]> {
   await buildIndex()
   if (!mini) return []
   let q = queryText
@@ -102,22 +112,18 @@ export async function search(queryText: string): Promise<SearchHit[]> {
   q = q.replace(STOP, ' ').trim()
 
   let results: SearchHit[]
-  if (!q && tf) {
+  if (!q) {
+    // no words: list docs (optionally filtered by type / time), newest first
     results = Array.from(docs.values())
-      .filter((d) => d.createdAt >= tf.from)
-      .map((d) => ({ id: d.id, rawId: d.id.split(':')[1], kind: d.kind, title: d.title, score: d.updatedAt }))
+      .filter((d) => (!tf || d.createdAt >= tf.from) && (!typeKey || d.ntype === typeKey))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((d) => asHit(d, d.updatedAt))
   } else {
-    results = mini.search(q).map((r: any) => ({
-      id: r.id, rawId: String(r.id).split(':')[1], kind: r.kind, title: r.title, score: r.score,
-    }))
-    if (tf) {
-      results = results.filter((r) => {
-        const d = docs.get(r.id)
-        return d && d.createdAt >= tf.from
-      })
-    }
+    results = mini.search(q).map((r: any) => asHit(docs.get(r.id)!, r.score)).filter(Boolean)
+    if (tf) results = results.filter((r) => (docs.get(r.id)?.createdAt || 0) >= tf.from)
+    if (typeKey) results = results.filter((r) => r.ntype === typeKey)
   }
-  return results.slice(0, 80)
+  return results.slice(0, 120)
 }
 
 export const invalidateIndex = () => { builtAt = 0 }

@@ -31,6 +31,10 @@ class MaktabatiDB extends Dexie {
     this.version(2).stores({
       notes: 'id, updatedAt, createdAt, dirty, deleted, sectionId, folderId, pinned, favorite, archived, title, *tags, *links',
     })
+    // v3: index content type so browsing a knowledge type stays fast at scale
+    this.version(3).stores({
+      notes: 'id, updatedAt, createdAt, dirty, deleted, sectionId, folderId, pinned, favorite, archived, title, type, *tags, *links',
+    })
   }
 }
 

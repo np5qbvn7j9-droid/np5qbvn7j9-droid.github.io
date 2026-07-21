@@ -34,6 +34,7 @@ export interface SrsState {
 }
 
 export interface Note extends Base {
+  type?: string // content type key (see lib/contentTypes); defaults to 'note'
   title: string
   description: string
   contentHTML: string
